@@ -1,0 +1,27 @@
+selected_groups:
+Each group ultimately selected by the algorithm is a tuple.
+
+group_count:
+The number of selected groups, which is len(selected_groups).
+
+is_valid:
+Is 100% coverage completed.
+True：All targets are covered
+False：Still have tagerts not being covered
+
+runtime_ms:
+run time(ms)
+
+target_count:
+How many target j-groups have been generated in total.
+
+candidate_count_used:
+The number of candidates actually participating in the search.
+
+candidate_count_total:
+The theoretical total number of k-groups.
+
+mode
+mode using now:
+full-candidate：All candidate joined
+heuristic：Too much candidate，adopted the heuristic candidate pool
