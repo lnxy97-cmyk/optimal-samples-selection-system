@@ -1,0 +1,21 @@
+from solver import solve
+
+samples = [1, 5, 12, 18, 22, 30, 41]
+
+result = solve(
+    samples=samples,
+    m=45,   # total range is 1..45
+    n=7,    # number of chosen samples
+    k=4,    # size of each selected group
+    j=4,    # size of target group
+    s=3,    # at least s common elements means covered
+    max_candidates=200000,
+    seed=42,
+    attempts=3,
+)
+
+if result["status"] == "ok":
+    print("Success")
+    print("Selected groups:", result["selected_groups"])
+else:
+    print("Failed:", result["message"])
