@@ -1,0 +1,72 @@
+1. 
+samples = [1, 2, 3, 4, 5, 6, 7]
+result = solve(samples=samples, m=45, n=7, k=6, j=5, s=5)
+
+{'candidate_count_total': 7,
+ 'candidate_count_used': 7,
+ 'group_count': 6,
+ 'input': {'j': 5, 'k': 6, 'm': 45, 'n': 7, 's': 5},
+ 'is_valid': True,
+ 'message': 'Success (full-candidate mode)',
+ 'mode': 'full-candidate',
+ 'runtime_ms': 0.16,
+ 'samples': [1, 2, 3, 4, 5, 6, 7],
+ 'selected_groups': [(1, 2, 3, 4, 5, 6),
+                     (1, 2, 3, 4, 5, 7),
+                     (1, 2, 3, 4, 6, 7),
+                     (1, 2, 3, 5, 6, 7),
+                     (1, 2, 4, 5, 6, 7),
+                     (1, 3, 4, 5, 6, 7)],
+ 'status': 'ok',
+ 'target_count': 21,
+ 'uncovered_target_count': 0}
+
+2.
+samples = [1, 2, 3, 4, 5, 6, 7, 8]
+result = solve(samples=samples, m=45, n=8, k=6, j=5, s=5)
+
+{'candidate_count_total': 28,
+ 'candidate_count_used': 28,
+ 'group_count': 12,
+ 'input': {'j': 5, 'k': 6, 'm': 45, 'n': 8, 's': 5},
+ 'is_valid': True,
+ 'message': 'Success (full-candidate mode)',
+ 'mode': 'full-candidate',
+ 'runtime_ms': 0.58,
+ 'samples': [1, 2, 3, 4, 5, 6, 7, 8],
+ 'selected_groups': [(1, 2, 3, 4, 5, 6),
+                     (1, 2, 3, 4, 7, 8),
+                     (1, 2, 5, 6, 7, 8),
+                     (3, 4, 5, 6, 7, 8),
+                     (1, 2, 3, 4, 5, 7),
+                     (1, 2, 3, 4, 5, 8),
+                     (1, 2, 3, 4, 6, 7),
+                     (1, 2, 3, 4, 6, 8),
+                     (1, 3, 5, 6, 7, 8),
+                     (1, 4, 5, 6, 7, 8),
+                     (2, 3, 5, 6, 7, 8),
+                     (2, 4, 5, 6, 7, 8)],
+ 'status': 'ok',
+ 'target_count': 56,
+ 'uncovered_target_count': 0}
+
+3.
+samples = [1, 5, 12, 18, 22, 30, 41]
+result = solve(samples=samples, m=45, n=7, k=4, j=4, s=3)
+
+{'candidate_count_total': 35,
+ 'candidate_count_used': 35,
+ 'group_count': 4,
+ 'input': {'j': 4, 'k': 4, 'm': 45, 'n': 7, 's': 3},
+ 'is_valid': True,
+ 'message': 'Success (full-candidate mode)',
+ 'mode': 'full-candidate',
+ 'runtime_ms': 0.4,
+ 'samples': [1, 5, 12, 18, 22, 30, 41],
+ 'selected_groups': [(1, 5, 12, 18),
+                     (1, 22, 30, 41),
+                     (5, 12, 18, 22),
+                     (5, 12, 18, 30)],
+ 'status': 'ok',
+ 'target_count': 35,
+ 'uncovered_target_count': 0}
