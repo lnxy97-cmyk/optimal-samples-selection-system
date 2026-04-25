@@ -1,4 +1,5 @@
 import random
+from datetime import datetime
 import tkinter as tk
 from tkinter import ttk, messagebox
 
@@ -6,6 +7,21 @@ try:
     from solver import solve
 except ImportError:
     solve = None
+
+try:
+    from storage import (
+        init_db,
+        save_record,
+        load_all_records,
+        load_record_by_name,
+        delete_record_by_name,
+    )
+except ImportError:
+    init_db = None
+    save_record = None
+    load_all_records = None
+    load_record_by_name = None
+    delete_record_by_name = None
 
 
 class OptimalSamplesApp:
@@ -15,27 +31,14 @@ class OptimalSamplesApp:
         self.root.geometry("1280x760")
         self.root.minsize(1180, 700)
 
-        # 假数据库
-        self.records = [
-            {
-                "name": "45-9-6-5-5-1-58",
-                "content": "Record: 45-9-6-5-5-1-58\n------------------------------------------\n[1, 3, 5, 7, 9, 11]\n[2, 4, 6, 8, 10, 12]\n[5, 8, 12, 15, 20, 25]\n"
-            },
-            {
-                "name": "45-10-6-5-4-1-20",
-                "content": "Record: 45-10-6-5-4-1-20\n------------------------------------------\n[3, 6, 9, 12, 15, 18]\n[4, 8, 12, 16, 20, 24]\n"
-            },
-            {
-                "name": "45-10-6-4-4-1-30",
-                "content": "Record: 45-10-6-4-4-1-30\n------------------------------------------\n[1, 2, 3, 4, 5, 6]\n[7, 8, 9, 10, 11, 12]\n"
-            },
-        ]
-
+        self.record_names = []
         self.current_result_pages = []
         self.current_page_index = 0
-        self.last_saved_run_number = 1
         self.main_page_state = None
         self.last_solver_result = None
+
+        if init_db is not None:
+            init_db()
 
         self._build_main_page()
 
@@ -47,13 +50,10 @@ class OptimalSamplesApp:
             widget.destroy()
 
     def _make_button(self, parent, text, command, pady=8):
-        btn = ttk.Button(parent, text=text, command=command, width=16)
-        btn.pack(pady=pady)
-        return btn
+        button = ttk.Button(parent, text=text, command=command, width=16)
+        button.pack(pady=pady)
+        return button
 
-    # =========================
-    # Copy support
-    # =========================
     def copy_selected_text(self, event):
         widget = event.widget
         try:
@@ -66,21 +66,12 @@ class OptimalSamplesApp:
         return "break"
 
     def bind_copy_shortcuts(self):
-        if hasattr(self, "values_text"):
-            self.values_text.bind("<Control-c>", self.copy_selected_text)
-            self.values_text.bind("<Control-C>", self.copy_selected_text)
+        for name in ("values_text", "results_text", "record_detail_text"):
+            widget = getattr(self, name, None)
+            if widget is not None and widget.winfo_exists():
+                widget.bind("<Control-c>", self.copy_selected_text)
+                widget.bind("<Control-C>", self.copy_selected_text)
 
-        if hasattr(self, "results_text"):
-            self.results_text.bind("<Control-c>", self.copy_selected_text)
-            self.results_text.bind("<Control-C>", self.copy_selected_text)
-
-        if hasattr(self, "record_detail_text"):
-            self.record_detail_text.bind("<Control-c>", self.copy_selected_text)
-            self.record_detail_text.bind("<Control-C>", self.copy_selected_text)
-
-    # =========================
-    # Helpers for text widgets
-    # =========================
     def set_values_content(self, text):
         self.values_text.config(state="normal")
         self.values_text.delete("1.0", tk.END)
@@ -92,17 +83,13 @@ class OptimalSamplesApp:
         self.values_text.insert(tk.END, text)
         self.values_text.config(state="disabled")
 
-    # =========================
-    # State Save / Restore
-    # =========================
     def save_main_page_state(self):
         if not hasattr(self, "m_var"):
             return
 
         manual_values = []
         if hasattr(self, "manual_entries"):
-            for entry in self.manual_entries:
-                manual_values.append(entry.get())
+            manual_values = [entry.get() for entry in self.manual_entries]
 
         values_content = ""
         if hasattr(self, "values_text"):
@@ -169,9 +156,6 @@ class OptimalSamplesApp:
         self.main_page_state = saved_state
         self.restore_main_page_state()
 
-    # =========================
-    # S1
-    # =========================
     def _build_main_page(self):
         self._clear_root()
 
@@ -300,9 +284,6 @@ class OptimalSamplesApp:
 
         self.bind_copy_shortcuts()
 
-    # =========================
-    # S2
-    # =========================
     def _build_database_page(self):
         self._clear_root()
 
@@ -323,7 +304,7 @@ class OptimalSamplesApp:
         list_frame = ttk.LabelFrame(body, text="Saved Records", padding=8)
         list_frame.pack(side="left", fill="y", padx=(0, 10))
 
-        self.record_listbox = tk.Listbox(list_frame, width=32, height=22, font=("Consolas", 11))
+        self.record_listbox = tk.Listbox(list_frame, width=36, height=22, font=("Consolas", 11))
         self.record_listbox.pack(side="left", fill="y")
 
         list_scroll = ttk.Scrollbar(list_frame, orient="vertical", command=self.record_listbox.yview)
@@ -357,13 +338,16 @@ class OptimalSamplesApp:
     def refresh_record_listbox(self):
         if not hasattr(self, "record_listbox"):
             return
-        self.record_listbox.delete(0, tk.END)
-        for record in self.records:
-            self.record_listbox.insert(tk.END, record["name"])
 
-    # =========================
-    # Validation / Input
-    # =========================
+        self.record_listbox.delete(0, tk.END)
+
+        if load_all_records is None:
+            return
+
+        self.record_names = load_all_records()
+        for name in self.record_names:
+            self.record_listbox.insert(tk.END, name)
+
     def get_validated_parameters(self):
         try:
             m = int(self.m_var.get().strip())
@@ -438,9 +422,6 @@ class OptimalSamplesApp:
 
         return sorted(numbers)
 
-    # =========================
-    # Solver helpers
-    # =========================
     def paginate_groups(self, groups, page_size=8):
         if not groups:
             return [[]]
@@ -468,9 +449,50 @@ class OptimalSamplesApp:
         lines.append("-" * 42)
         return "\n".join(lines) + "\n"
 
-    # =========================
-    # Actions
-    # =========================
+    def build_record_name(self, result):
+        params = result.get("input", {})
+        m = params.get("m", "")
+        n = params.get("n", "")
+        k = params.get("k", "")
+        j = params.get("j", "")
+        s = params.get("s", "")
+        group_count = result.get("group_count", 0)
+        stamp = datetime.now().strftime("%H%M%S%f")[:-3]
+
+        return f"{m}-{n}-{k}-{j}-{s}-{stamp}-{group_count}"
+
+    def build_record_content(self, result):
+        params = result.get("input", {})
+        saved_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+        lines = []
+        lines.append(f"Saved At: {saved_at}")
+        lines.append(f"Status: {result.get('status', '')}")
+        lines.append(f"Message: {result.get('message', '')}")
+        lines.append("-" * 42)
+        lines.append(f"m = {params.get('m', '')}")
+        lines.append(f"n = {params.get('n', '')}")
+        lines.append(f"k = {params.get('k', '')}")
+        lines.append(f"j = {params.get('j', '')}")
+        lines.append(f"s = {params.get('s', '')}")
+        lines.append(f"Runtime: {result.get('runtime_ms', 0)} ms")
+        lines.append(f"Result Count: {result.get('group_count', 0)}")
+        lines.append(f"Target Count: {result.get('target_count', 0)}")
+        lines.append(f"Candidates Used: {result.get('candidate_count_used', 0)}")
+        lines.append(f"Candidates Total: {result.get('candidate_count_total', 0)}")
+        lines.append(f"Mode: {result.get('mode', '')}")
+        lines.append(f"Valid Coverage: {result.get('is_valid', False)}")
+        lines.append(f"Uncovered Targets: {result.get('uncovered_target_count', 0)}")
+        lines.append("-" * 42)
+        lines.append(f"Selected Numbers: {result.get('samples', [])}")
+        lines.append("-" * 42)
+        lines.append("Selected Groups:")
+
+        for idx, group in enumerate(result.get("selected_groups", []), start=1):
+            lines.append(f"{idx}. {tuple(group)}")
+
+        return "\n".join(lines)
+
     def execute_action(self):
         if solve is None:
             messagebox.showerror(
@@ -560,38 +582,31 @@ class OptimalSamplesApp:
         self.show_current_result_page()
         self.save_main_page_state()
 
-    def generate_record_name(self):
-        m = self.m_var.get().strip()
-        n = self.n_var.get().strip()
-        k = self.k_var.get().strip()
-        j = self.j_var.get().strip()
-        s = self.s_var.get().strip()
-
-        result_count = 0
-        if self.last_solver_result:
-            result_count = self.last_solver_result.get("group_count", 0)
-
-        return f"{m}-{n}-{k}-{j}-{s}-{self.last_saved_run_number}-{result_count}"
-
     def store_action(self):
-        content = self.results_text.get("1.0", tk.END).strip()
-        if not content:
-            messagebox.showwarning("Store", "No results to store.")
+        if save_record is None:
+            messagebox.showerror("Store Error", "Cannot import storage functions from storage.py.")
             return
 
-        record_name = self.generate_record_name()
-        record_content = f"Record: {record_name}\n"
-        record_content += "-" * 42 + "\n"
-        record_content += content + "\n"
+        if not self.last_solver_result:
+            messagebox.showwarning("Store", "No solver result to store.")
+            return
 
-        self.records.append({
-            "name": record_name,
-            "content": record_content
-        })
+        status = self.last_solver_result.get("status", "")
+        if status == "error":
+            messagebox.showwarning("Store", "Current result is invalid and cannot be stored.")
+            return
 
-        self.last_saved_run_number += 1
+        record_name = self.build_record_name(self.last_solver_result)
+        record_content = self.build_record_content(self.last_solver_result)
+
+        try:
+            save_record(record_name, record_content)
+        except Exception as exc:
+            messagebox.showerror("Store Error", f"Failed to save record:\n{exc}")
+            return
+
         self.save_main_page_state()
-        messagebox.showinfo("Store", f"Record stored successfully:\n{record_name}")
+        messagebox.showinfo("Store", "Record stored successfully.")
 
     def clear_action(self):
         for var in [self.m_var, self.n_var, self.k_var, self.j_var, self.s_var, self.at_least_var]:
@@ -612,20 +627,22 @@ class OptimalSamplesApp:
     def print_action(self):
         messagebox.showinfo("Print", "Print function will be added later.")
 
-    # =========================
-    # S2 actions
-    # =========================
     def display_record(self):
         selection = self.record_listbox.curselection()
         if not selection:
             messagebox.showwarning("Display", "Please select a record first.")
             return
 
+        if load_record_by_name is None:
+            messagebox.showerror("Display Error", "Cannot import load_record_by_name from storage.py.")
+            return
+
         index = selection[0]
-        record = self.records[index]
+        record_name = self.record_names[index]
+        content = load_record_by_name(record_name)
 
         self.record_detail_text.delete("1.0", tk.END)
-        self.record_detail_text.insert(tk.END, record["content"])
+        self.record_detail_text.insert(tk.END, content)
 
     def delete_record(self):
         selection = self.record_listbox.curselection()
@@ -633,13 +650,23 @@ class OptimalSamplesApp:
             messagebox.showwarning("Delete", "Please select a record first.")
             return
 
+        if delete_record_by_name is None:
+            messagebox.showerror("Delete Error", "Cannot import delete_record_by_name from storage.py.")
+            return
+
         index = selection[0]
-        record_name = self.records[index]["name"]
+        record_name = self.record_names[index]
 
         confirmed = messagebox.askyesno("Delete", f"Delete record '{record_name}'?")
         if not confirmed:
             return
 
-        del self.records[index]
+        try:
+            delete_record_by_name(record_name)
+        except Exception as exc:
+            messagebox.showerror("Delete Error", f"Failed to delete record:\n{exc}")
+            return
+
         self.refresh_record_listbox()
         self.record_detail_text.delete("1.0", tk.END)
+        messagebox.showinfo("Delete", "Record deleted successfully.")
