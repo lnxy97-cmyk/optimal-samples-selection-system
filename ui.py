@@ -72,6 +72,10 @@ class OptimalSamplesApp:
                 widget.bind("<Control-c>", self.copy_selected_text)
                 widget.bind("<Control-C>", self.copy_selected_text)
 
+    def _sync_at_least_from_s(self, *args):
+        if hasattr(self, "at_least_var") and hasattr(self, "s_var"):
+            self.at_least_var.set(self.s_var.get().strip())
+
     def set_values_content(self, text):
         self.values_text.config(state="normal")
         self.values_text.delete("1.0", tk.END)
@@ -128,8 +132,8 @@ class OptimalSamplesApp:
         self.k_var.set(state.get("k", ""))
         self.j_var.set(state.get("j", ""))
         self.s_var.set(state.get("s", ""))
-        self.at_least_var.set(state.get("at_least", ""))
         self.mode_var.set(state.get("mode", "random"))
+        self._sync_at_least_from_s()
 
         for entry in self.manual_entries:
             entry.delete(0, tk.END)
@@ -167,6 +171,8 @@ class OptimalSamplesApp:
         self.at_least_var = tk.StringVar()
         self.mode_var = tk.StringVar(value="random")
 
+        self.s_var.trace_add("write", self._sync_at_least_from_s)
+
         container = ttk.Frame(self.root, padding=12)
         container.pack(fill="both", expand=True)
 
@@ -203,8 +209,10 @@ class OptimalSamplesApp:
         ttk.Entry(param_frame, textvariable=self.s_var, width=12).grid(row=2, column=1, padx=(0, 20), pady=8, sticky="w")
 
         ttk.Label(param_frame, text="at least").grid(row=2, column=2, padx=(10, 6), pady=8, sticky="w")
-        ttk.Entry(param_frame, textvariable=self.at_least_var, width=8).grid(row=2, column=3, padx=(0, 6), pady=8, sticky="w")
-        ttk.Label(param_frame, text="s samples").grid(row=2, column=4, padx=(4, 0), pady=8, sticky="w")
+        ttk.Entry(param_frame, textvariable=self.at_least_var, width=8, state="readonly").grid(row=2, column=3, padx=(0, 6), pady=8, sticky="w")
+        ttk.Label(param_frame, text="common samples").grid(row=2, column=4, padx=(4, 0), pady=8, sticky="w")
+
+        self._sync_at_least_from_s()
 
         ttk.Radiobutton(param_frame, text="Random n", variable=self.mode_var, value="random").grid(
             row=3, column=0, padx=(10, 10), pady=(10, 0), sticky="w"
@@ -378,19 +386,7 @@ class OptimalSamplesApp:
             messagebox.showerror("Input Error", "n must be greater than or equal to k.")
             return None
 
-        at_least_raw = self.at_least_var.get().strip()
-        at_least_value = None
-        if at_least_raw:
-            try:
-                at_least_value = int(at_least_raw)
-                if at_least_value <= 0:
-                    messagebox.showerror("Input Error", "The 'at least' value must be a positive integer.")
-                    return None
-            except ValueError:
-                messagebox.showerror("Input Error", "The 'at least' value must be an integer.")
-                return None
-
-        return m, n, k, j, s, at_least_value
+        return m, n, k, j, s
 
     def get_selected_numbers(self, m, n):
         if self.mode_var.get() == "random":
@@ -505,7 +501,7 @@ class OptimalSamplesApp:
         if not validated:
             return
 
-        m, n, k, j, s, at_least_value = validated
+        m, n, k, j, s = validated
         selected_numbers = self.get_selected_numbers(m, n)
         if selected_numbers is None:
             return
@@ -609,8 +605,10 @@ class OptimalSamplesApp:
         messagebox.showinfo("Store", "Record stored successfully.")
 
     def clear_action(self):
-        for var in [self.m_var, self.n_var, self.k_var, self.j_var, self.s_var, self.at_least_var]:
+        for var in [self.m_var, self.n_var, self.k_var, self.j_var, self.s_var]:
             var.set("")
+
+        self._sync_at_least_from_s()
 
         self.mode_var.set("random")
         self.set_values_content("")
