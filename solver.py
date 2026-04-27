@@ -111,11 +111,45 @@ def build_candidate_groups(
 # -----------------------------
 # 4) Precompute coverage information
 # -----------------------------
-def build_cover_bits(candidate_masks: List[int], target_masks: List[int], s: int) -> List[int]:
+def build_cover_bits(
+    candidate_groups: List[Tuple[int, ...]],
+    candidate_masks: List[int],
+    target_masks: List[int],
+    s: int,
+    j: int,
+) -> List[int]:
     """
-    For each candidate, store which targets it can cover.
-    The i-th bit means whether target i is covered.
+    Build coverage information for each candidate.
+
+    Normal case:
+        Check each candidate against each target.
+
+    Faster case when s == j:
+        A target is covered only if all its j elements are inside the candidate.
+        So we only need to generate j-combinations inside each candidate.
     """
+
+    # Fast path: when s == j, target must be a subset of candidate
+    if s == j:
+        target_index = {mask: idx for idx, mask in enumerate(target_masks)}
+        cover_bits = []
+
+        for group in candidate_groups:
+            bits = 0
+
+            # Only generate target groups that are inside this candidate
+            for sub_group in combinations(group, j):
+                sub_mask = to_mask(sub_group)
+                idx = target_index.get(sub_mask)
+
+                if idx is not None:
+                    bits |= 1 << idx
+
+            cover_bits.append(bits)
+
+        return cover_bits
+
+    # General case
     cover_bits = []
     for k_mask in candidate_masks:
         bits = 0
@@ -123,6 +157,7 @@ def build_cover_bits(candidate_masks: List[int], target_masks: List[int], s: int
             if is_covered_mask(k_mask, t_mask, s):
                 bits |= 1 << t_idx
         cover_bits.append(bits)
+
     return cover_bits
 
 
@@ -266,6 +301,29 @@ def solve(
         }
 
     samples = sorted(list(samples))
+        # Special case:
+    # If j == k == s, a target can only be covered by exactly the same group.
+    # So the best solution is simply all k-groups.
+    if j == k == s:
+        selected_groups = list(combinations(samples, k))
+        runtime_ms = round((time.perf_counter() - start) * 1000, 2)
+
+        return {
+            "status": "ok",
+            "message": "Success (special case: j = k = s)",
+            "input": {"m": m, "n": n, "k": k, "j": j, "s": s},
+            "samples": samples,
+            "selected_groups": selected_groups,
+            "group_count": len(selected_groups),
+            "is_valid": True,
+            "runtime_ms": runtime_ms,
+            "target_count": len(selected_groups),
+            "candidate_count_used": len(selected_groups),
+            "candidate_count_total": len(selected_groups),
+            "mode": "special-case",
+            "uncovered_target_count": 0,
+            "attempts_used": 0,
+        }
 
     target_masks = build_target_masks(samples, j)
     target_count = len(target_masks)
@@ -277,11 +335,26 @@ def solve(
         seed=seed,
     )
 
-    cover_bits = build_cover_bits(candidate_masks, target_masks, s)
+    cover_bits = build_cover_bits(
+    candidate_groups=candidate_groups,
+    candidate_masks=candidate_masks,
+    target_masks=target_masks,
+    s=s,
+    j=j,
+)
+    
+    # For large cases, running greedy multiple times can be slow.
+    # So we reduce attempts automatically to keep the program responsive.
+    workload = len(candidate_groups) * target_count
+    effective_attempts = attempts
+
+    if workload > 30_000_000:
+        effective_attempts = 1
+
     selected_indices, uncovered_count = multi_start_greedy(
         cover_bits=cover_bits,
         target_count=target_count,
-        attempts=attempts,
+        attempts=effective_attempts,
         seed=seed,
     )
 
@@ -317,6 +390,7 @@ def solve(
         "candidate_count_total": total_candidate_count,
         "mode": mode,
         "uncovered_target_count": uncovered_count,
+        "attempts_used": effective_attempts,
     }
 
 
@@ -327,14 +401,14 @@ if __name__ == "__main__":
     from pprint import pprint
 
     # Example from the report / notes
-    samples = [1, 2, 3, 4, 5, 6, 7]
+    samples = [1, 5, 12, 18, 22, 30, 41]
     result = solve(
         samples=samples,
         m=45,
         n=7,
-        k=6,
-        j=5,
-        s=5,
+        k=4,
+        j=4,
+        s=3,
     )
 
     pprint(result)
