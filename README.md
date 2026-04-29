@@ -1,8 +1,13 @@
-How to Run:
+How to Run in Windows:
 1. Open the project folder.
 2. Navigate to the "dist" directory.
 3. Double-click "main.exe".
 4. The system will launch automatically.
+
+How to Run in MacOS:
+macOS cannot directly run Windows .exe files.
+Please open Terminal, go to the project folder, and run:
+1. python3 main.py
 
 Usage Instructions:
 1. Input the parameters (m, n, k, j, s).
