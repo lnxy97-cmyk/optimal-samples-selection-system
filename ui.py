@@ -520,9 +520,8 @@ class OptimalSamplesApp:
                 k=k,
                 j=j,
                 s=s,
-                max_candidates=200000,
+                max_candidates=100000,
                 seed=42,
-                attempts=3,
             )
         except Exception as exc:
             messagebox.showerror("Execute Error", f"Solver execution failed:\n{exc}")
